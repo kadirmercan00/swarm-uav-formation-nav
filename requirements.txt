@@ -1,0 +1,7 @@
+dronekit>=2.9.2
+pymavlink>=2.4.40
+pyserial>=3.5
+pyswarm>=0.6
+numpy>=1.21.0
+opencv-python>=4.5.5
+PyQt5>=5.15.0
