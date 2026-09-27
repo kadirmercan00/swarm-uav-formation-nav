@@ -1,0 +1,23 @@
+name: Swarm UAV Core & Simulator CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-swarm-core:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Run Kinematic Vector Unit Tests
+        run: |
+          python -m unittest discover -s sim/tests -p "test_*.py"

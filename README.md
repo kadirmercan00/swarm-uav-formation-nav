@@ -1,85 +1,77 @@
-# Multi-UAV Swarm Formation Navigation & Vision-Based Relative Guidance
+<div align="center">
 
-[![License: Proprietary Showcase](https://img.shields.io/badge/License-Proprietary_Portfolio_Showcase-red.svg)](LICENSE)
-[![Autopilot: ArduPilot / PX4](https://img.shields.io/badge/Autopilot-ArduPilot%20%2F%20PX4-green.svg)](https://ardupilot.org/)
-[![Protocol: MAVLink 2.0](https://img.shields.io/badge/Protocol-MAVLink%202.0-blue.svg)](https://mavlink.io/)
-[![Mesh: ESP32 PainlessMesh](https://img.shields.io/badge/Inter--UAV%20Mesh-ESP32%20PainlessMesh-orange.svg)](https://gitlab.com/painlessMesh/painlessMesh)
-[![Vision: OpenCV ArUco](https://img.shields.io/badge/Computer%20Vision-OpenCV%20ArUco-yellow.svg)](https://opencv.org/)
-[![GUI: PyQt5 Ground Station](https://img.shields.io/badge/GCS-PyQt5%20Ground%20Station-informational.svg)](gcs/)
+# 🛸 Autonomous Swarm UAV Formation Navigation & APF Guidance
 
-> [!WARNING]
-> **PROPRIETARY PORTFOLIO SHOWCASE NOTICE**  
-> This repository is published strictly for technical evaluation, code review, and algorithmic demonstration as part of **Kadir Mercan's (Mercan Studio)** engineering portfolio.  
-> **All rights reserved.** Reproduction, deployment on flight hardware, commercial exploitation, or reverse engineering of this software without prior written authorization is strictly prohibited under the terms of the included [LICENSE](LICENSE).
+**Decentralized Multi-UAV Swarm Avionics: Leader-Follower Guidance, Artificial Potential Field (APF) Collision Avoidance, ESP-Mesh Telemetry & OpenCV ArUco Vision**
+
+[![Python 3.10](https://img.shields.io/badge/Python-3.10-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![MAVLink 2.0](https://img.shields.io/badge/Protocol-PyMAVLink_2.0-blue)](https://mavlink.io/)
+[![DroneKit](https://img.shields.io/badge/Avionics-DroneKit_Python-orange)](https://dronekit.netlify.app/)
+[![Computer Vision](https://img.shields.io/badge/Vision-OpenCV_ArUco-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org/)
+[![GUI: PyQt5](https://img.shields.io/badge/GCS-PyQt5_Ground_Control-41CD52?logo=qt&logoColor=white)](gcs/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+[Architecture](#-system-architecture) • [Formation Simulator](sim/swarm_visualizer.py) • [Leader Flight Core](core/leader_fnav.py) • [Follower Core](core/follower1_fnav.py) • [GCS Ground Station](gcs/)
+
+</div>
 
 ---
 
-## 🎯 Executive Summary
+## 📌 Executive Summary
 
-A real-time, decentralized **Autonomous Swarm UAV Formation Navigation System** deployed on multi-rotor unmanned aerial vehicles. The architecture integrates **PyMAVLink / DroneKit** companion computers, an ad-hoc **ESP32 PainlessMesh inter-UAV telemetry bus**, **Artificial Potential Field (APF)** collision avoidance, and **OpenCV ArUco marker vision tracking** for relative pose estimation.
+Autonomous multi-agent UAV operations require high-bandwidth coordination without relying entirely on centralized cloud infrastructure. In dynamic GPS-degraded or adversarial airspace, swarm agents must compute deterministic trajectory vectors to maintain tactical geometry while avoiding static obstacles and neighboring drones.
 
-Designed for synchronized multi-agent tactical maneuvers, including dynamic Crescent (*Hilal*), V-Formation, and Line patrol configurations with heading compensation and velocity vectoring.
+This repository implements a **complete multi-UAV swarm guidance stack**:
+1. **Leader-Follower Formation Kinematics:** Computes dynamic NED (North-East-Down) velocity vectors ($V_x, V_y, V_z$) at $10\,\text{Hz}$ via **PyMAVLink 2.0 / DroneKit** to maintain rigid V-formation and Line-formation patterns.
+2. **Artificial Potential Field (APF) Avoidance:** Real-time vector field math calculating attractive forces toward formation slots and strong non-linear repulsive fields around obstacles.
+3. **Ad-Hoc Inter-UAV Telemetry:** Lightweight binary broadcast via ESP32 **PainlessMesh** allowing resilient inter-drone state sharing without cellular towers.
+4. **GPS-Denied Relative Localization:** Integrated **OpenCV ArUco marker pose estimation** allowing followers to visually lock onto the leader's airframe.
+5. **Live Offline Swarm Simulator (`sim/swarm_visualizer.py`):** Standalone visualizer testing APF vectors, obstacle avoidance, and follower slot retention without physical hardware.
 
 ---
 
 ## 🏛️ System Architecture
 
-```
-                                  ┌──────────────────────────────┐
-                                  │      Ground Control Station   │
-                                  │    (PyQt5 Formation GCS)     │
-                                  └──────────────┬───────────────┘
-                                                 │ USB / RF Telemetry
-                                                 ▼
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                   ESP32 PAINLESS-MESH INTER-UAV TELEMETRY BUS                          │
-│        (JSON broadcast: Formation Vectors, Heading Commands, Health Diagnostics)        │
-└───────────────┬────────────────────────────────┬───────────────────────────────┬───────┘
-                │                                │                               │
-                ▼                                ▼                               ▼
-   ┌─────────────────────────┐      ┌─────────────────────────┐     ┌─────────────────────────┐
-   │      DRONE 0 (LEADER)   │      │   DRONE 1 (FOLLOWER)    │     │   DRONE 2 (FOLLOWER)    │
-   ├─────────────────────────┤      ├─────────────────────────┤     ├─────────────────────────┤
-   │ • Companion Computer    │      │ • Companion Computer    │     │ • Companion Computer    │
-   │ • Streaming Global Nav  │      │ • APF Collision Avoidance│    │ • APF Collision Avoidance│
-   │ • ArUco Optical Tracking│      │ • NED Velocity Control  │     │ • NED Velocity Control  │
-   │ • Smart Yaw Rate Limiter│      │ • Path Smoothing Filter │     │ • Path Smoothing Filter │
-   │ • Pixhawk / MAVLink     │      │ • Pixhawk / MAVLink     │     │ • Pixhawk / MAVLink     │
-   └─────────────────────────┘      └─────────────────────────┘     └─────────────────────────┘
+```mermaid
+graph TD
+    subgraph LeaderUAV [Leader UAV (Drone 0)]
+        L_NAV[Waypoint Mission Planner] -->|Global NED Pos| L_MAV[PyMAVLink Flight Core]
+        L_MAV -->|Broadcast Telemetry| MESH[ESP-Mesh Ad-Hoc Radio]
+        ARUCO_TAG[Rear ArUco Marker]
+    end
+
+    subgraph Follower1 [Follower UAV 1 (Port Wing)]
+        MESH -->|Leader State Frame| F1_APF[APF Vector Controller]
+        CAM1[Downward/Forward Camera] -->|Marker Pose Estimation| ARUCO_EST1[ArUco Visual Tracker]
+        ARUCO_EST1 & F1_APF --> F1_CORE[PyMAVLink 10Hz NED Velocity Vectors]
+    end
+
+    subgraph Follower2 [Follower UAV 2 (Starboard Wing)]
+        MESH -->|Leader State Frame| F2_APF[APF Vector Controller]
+        CAM2[Downward/Forward Camera] -->|Marker Pose Estimation| ARUCO_EST2[ArUco Visual Tracker]
+        ARUCO_EST2 & F2_APF --> F2_CORE[PyMAVLink 10Hz NED Velocity Vectors]
+    end
+
+    subgraph GroundStation [Ground Control Station]
+        GCS[PyQt5 Swarm Cockpit GCS] -.->|Telemetry & Abort| LeaderUAV & Follower1 & Follower2
+    end
 ```
 
 ---
 
-## ⚙️ Core Algorithmic & Engineering Modules
+## 📐 Artificial Potential Field (APF) Mathematics
 
-### 1. Artificial Potential Field (APF) Collision Avoidance
-Follower UAVs execute high-rate velocity vectoring in the local North-East-Down (NED) frame. To ensure inter-vehicle safety while maintaining tight tactical formations, the navigation engine computes resultant force vectors:
+The steering force $\vec{F}_{\text{total}}$ acting on each follower drone is the superposition of an attractive slot-seeking force and repulsive obstacle forces:
 
-$$F_{\text{total}} = F_{\text{att}} + \sum F_{\text{rep}}$$
+$$\vec{F}_{\text{total}} = \vec{F}_{\text{att}} + \sum_{i} \vec{F}_{\text{rep}, i}$$
 
-* **Attractive Force ($F_{\text{att}}$):** Drives the follower toward the dynamic formation slot calculated from the leader's GPS origin and orientation.
-* **Repulsive Force ($F_{\text{rep}}$):** Activates dynamically when neighboring drones breach the $5.0\,\text{m}$ influence threshold ($d < d_{\text{influence}}$), with aggressive gain scaling inside the $3.0\,\text{m}$ critical collision boundary:
-  $$F_{\text{rep}} = \eta \left( \frac{1}{d} - \frac{1}{d_0} \right) \frac{1}{d^2} \hat{r}$$
+### 1. Attractive Potential ($F_{\text{att}}$):
+Directs the follower toward its calculated formation slot relative to the leader:
+$$\vec{F}_{\text{att}} = k_{\text{att}} \cdot (\vec{P}_{\text{slot}} - \vec{P}_{\text{drone}})$$
 
-### 2. High-Frequency PyMAVLink NED Velocity Control
-Instead of slow global waypoint commands (`NAV_WAYPOINT`), follower trajectories are modulated at **10 Hz** using native MAVLink velocity commands:
-* Command: `MAV_CMD_DO_SET_POSITION_TARGET_LOCAL_NED`
-* Velocity smoothing factor ($0.8$) and trajectory exponential filtering prevent abrupt motor current spikes and actuator chatter.
-* Dynamic approach deceleration curves smoothly reduce cruise speed ($3.0\,\text{m/s}$) to landing precision ($0.5\,\text{m/s}$) within $5.0\,\text{m}$ of target convergence.
-
-### 3. Smart Yaw Management & Deadband Limiter
-Prevents compass hunting and continuous yaw spinning during formation turns:
-* Minimal shortest-path angle wrapping (`wrap180`, `wrap360`).
-* Deadband threshold ($3.0^\circ$) suppresses negligible oscillations.
-* Rate-bounded yaw slew limit ($25^\circ/\text{s}$) maintains camera gimbal and sensor stability.
-
-### 4. ESP32 PainlessMesh Ad-Hoc Inter-Drone Telemetry
-* Autonomous self-healing RF mesh eliminating single-point-of-failure Wi-Fi access points.
-* Transmits compact JSON payloads containing state estimation, target offsets, sequence numbers, and formation heading vectors.
-
-### 5. Computer Vision: ArUco Marker Relative Guidance
-* Onboard camera pipelines run OpenCV ArUco dictionary recognition to calculate relative azimuth, elevation, and range ($X, Y, Z$).
-* Serves as an optical fallback when GPS signals undergo denial or multipath degradation in urban/GPS-denied zones.
+### 2. Repulsive Obstacle Potential ($F_{\text{rep}}$):
+Activates only when distance to an obstacle $d_i$ falls within influence threshold $d_{\text{influence}}$:
+$$\vec{F}_{\text{rep}, i} = k_{\text{rep}} \left( \frac{1}{d_i} - \frac{1}{d_{\text{influence}}} \right) \frac{1}{d_i^2} \cdot \hat{n}_i$$
 
 ---
 
@@ -87,50 +79,58 @@ Prevents compass hunting and continuous yaw spinning during formation turns:
 
 ```
 swarm-uav-formation-nav/
-├── core/
-│   ├── leader_fnav.py            # Drone 0: Master path streamer & formation heading director
-│   ├── follower1_fnav.py         # Drone 1: Crescent (Hilal) formation with APF vectoring
-│   └── follower2_fnav.py         # Drone 2: Crescent wing-follower with velocity smoothing
-├── comms/
-│   └── esp_mesh.py               # Asynchronous threaded serial bridge to ESP32 PainlessMesh
-├── vision/
-│   ├── drone0_aruco.py           # Optical detection & relative position tracking
-│   ├── drone1_aruco.py           # Vision-assisted follower orientation
-│   └── drone2_aruco.py           # Multi-marker spatial calibration
-├── gcs/
-│   ├── ui_formation_navigation.py# Full-featured PyQt5 Ground Station with live telemetry
-│   └── ui_aruco.py               # Vision telemetry visualizer & target diagnostic GUI
-├── requirements.txt              # Python runtime dependencies (DroneKit, MAVLink, PyQt5)
-├── LICENSE                       # Strict Proprietary Portfolio Showcase License
-└── README.md                     # Technical specification & mathematical foundation
+├── sim/                                 # ══ Offline Swarm Simulator ══
+│   ├── swarm_visualizer.py              # APF kinematic trajectory visualizer
+│   └── tests/
+│       └── test_apf_vectors.py          # Vector physics & APF unit tests
+│
+├── core/                                # ══ Multi-Agent Autonomy Flight Cores ══
+│   ├── leader_fnav.py                   # Leader waypoint navigator & mesh broadcaster
+│   ├── follower1_fnav.py                # Follower 1 APF slot controller
+│   └── follower2_fnav.py                # Follower 2 APF slot controller
+│
+├── gcs/                                 # ══ Ground Control Station (GCS) ══
+│   ├── ui_formation_navigation.py       # Full-scale PyQt5 swarm flight cockpit
+│   └── ui_aruco.py                      # Computer vision relative tracking UI
+│
+├── vision/                              # ══ OpenCV ArUco Tracking ══
+│   ├── drone0_aruco.py                  # Leader camera & marker detector
+│   ├── drone1_aruco.py                  # Follower 1 visual tracking pipeline
+│   └── drone2_aruco.py                  # Follower 2 visual tracking pipeline
+│
+├── comms/                               # ══ Inter-Drone Mesh Telemetry ══
+│   └── esp_mesh.py                      # ESP32 PainlessMesh serial bridge
+│
+├── .github/workflows/
+│   └── python-lint.yml                  # Automated unit test CI
+│
+├── LICENSE                              # MIT License
+└── README.md
 ```
 
 ---
 
-## 🚀 Execution & Simulation (SITL)
+## ⚙️ Quick Start
 
-1. **Install Dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. **Launch with ArduPilot Software-In-The-Loop (SITL):**
-   ```bash
-   # Terminal 1: Launch Ground Control Station
-   python gcs/ui_formation_navigation.py
+### 1. Run Offline Swarm Formation Simulator
+Test V-formation navigation and real-time obstacle avoidance without physical drones:
+```bash
+python sim/swarm_visualizer.py --steps 120
+```
 
-   # Terminal 2: Run Leader Node
-   python core/leader_fnav.py --connect 127.0.0.1:14550
+### 2. Run Kinematic Physics Tests
+```bash
+python -m unittest discover -s sim/tests
+```
 
-   # Terminal 3: Run Follower 1
-   python core/follower1_fnav.py --connect 127.0.0.1:14560
-   ```
+### 3. Launch PyQt5 Ground Control Station (GCS)
+```bash
+python gcs/ui_formation_navigation.py
+```
 
 ---
 
-## 👨‍💻 Engineering & Contact
+## 👨‍💻 Engineering Attribution
 
-**Kadir Mercan**  
-*Senior Embedded Systems, Hardware (PCB) & IoT Engineer*  
-- **GitHub:** [@kadirmercan00](https://github.com/kadirmercan00)  
-- **Brand:** Mercan Studio  
-- **Core Competencies:** UAV Avionics, Flight Control Firmware, Multi-Agent Swarm Algorithms, RF Embedded Hardware, Robotics Edge Vision.
+Engineered by **[Kadir Mercan](https://www.linkedin.com/in/kadir-mercan-/)**  
+*Senior Embedded Systems, Hardware & IoT Engineer*
