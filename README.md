@@ -10,7 +10,7 @@
 [![Computer Vision](https://img.shields.io/badge/Vision-OpenCV_ArUco-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org/)
 [![Web Simulator](https://img.shields.io/badge/Simulator-60_FPS_Interactive_Web-brightgreen.svg)](simulator/)
 [![Math Formulation](https://img.shields.io/badge/Math-APF_Vector_Field-red.svg)](docs/APF_MATHEMATICS.md)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: Proprietary Showcase](https://img.shields.io/badge/License-Proprietary_Showcase-red.svg)](LICENSE)
 
 [Interactive Web Simulator](simulator/) • [Mathematical Formulation](docs/APF_MATHEMATICS.md) • [Architecture](#-system-architecture) • [Leader Flight Core](core/leader_fnav.py) • [Follower Core](core/follower1_fnav.py) • [GCS Ground Station](gcs/)
 
