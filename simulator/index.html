@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Autonomous Swarm UAV Avionics & APF Vector Guidance Simulator</title>
+  <meta name="description" content="Interactive 60 FPS Multi-UAV Swarm Simulator with Artificial Potential Field (APF) obstacle avoidance, leader-follower kinematics, and tactical geometry reconfiguration.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="theme-dark">
+
+  <!-- ==================== AVIONICS TOP BAR ==================== -->
+  <header class="hud-header">
+    <div class="hud-left">
+      <div class="hud-badge">TACTICAL AVIONICS</div>
+      <div class="hud-title-group">
+        <span class="hud-title">SWARM UAV FORMATION GUIDANCE SIMULATOR</span>
+        <span class="hud-sub">LEADER-FOLLOWER KINEMATICS • ARTIFICIAL POTENTIAL FIELD (APF) • MAVLINK 2.0</span>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <div class="telemetry-pill">
+        <span class="pill-dot ok"></span>
+        <span class="pill-text">ESP-MESH: 10 Hz AD-HOC</span>
+      </div>
+      <div class="telemetry-pill">
+        <span class="pill-dot ok"></span>
+        <span class="pill-text">ARUCO TRACKING: LOCKED</span>
+      </div>
+      <div class="telemetry-pill">
+        <span class="pill-dot active"></span>
+        <span class="pill-text" id="hudSimFps">60 FPS</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==================== MAIN SIMULATOR LAYOUT ==================== -->
+  <main class="sim-container">
+
+    <!-- LEFT: Canvas Tactical Radar Display -->
+    <div class="canvas-panel">
+      <div class="canvas-header">
+        <div class="canvas-title">
+          <span>RADAR TACTICAL DISPLAY (NED COORD)</span>
+          <span class="canvas-hint">💡 Left-click anywhere to spawn/remove dynamic radar obstacles</span>
+        </div>
+        <div class="canvas-controls">
+          <label class="chk-label">
+            <input type="checkbox" id="chkShowVectors" checked> Show Force Vectors (F_att, F_rep, V_ned)
+          </label>
+          <label class="chk-label">
+            <input type="checkbox" id="chkShowTrails" checked> Flight Trails
+          </label>
+          <button class="btn-sm" onclick="clearObstacles()">Clear Obstacles</button>
+          <button class="btn-sm" onclick="resetSwarm()">Reset Swarm</button>
+        </div>
+      </div>
+
+      <div class="canvas-viewport">
+        <canvas id="radarCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- RIGHT: Tactical Command & Telemetry Cockpit -->
+    <aside class="cockpit-sidebar">
+
+      <!-- PANEL 1: Formation Geometry Selector -->
+      <div class="cockpit-card">
+        <div class="card-header">
+          <h4>FORMATION GEOMETRY</h4>
+          <span class="badge-role">GEOMETRY STATE</span>
+        </div>
+        <div class="formation-btn-grid">
+          <button class="form-btn active" id="btnFormV" onclick="setFormation('v_formation')">
+            <span class="btn-icon">▲</span>
+            <span class="btn-text">V-Shape (Wedge)</span>
+          </button>
+          <button class="form-btn" id="btnFormColumn" onclick="setFormation('column')">
+            <span class="btn-icon">❙❙</span>
+            <span class="btn-text">Column (Trail)</span>
+          </button>
+          <button class="form-btn" id="btnFormEchelon" onclick="setFormation('echelon')">
+            <span class="btn-icon">╱</span>
+            <span class="btn-text">Echelon (Line)</span>
+          </button>
+          <button class="form-btn" id="btnFormDiamond" onclick="setFormation('diamond')">
+            <span class="btn-icon">◆</span>
+            <span class="btn-text">Diamond Wing</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL 2: Flight Path Controller -->
+      <div class="cockpit-card">
+        <div class="card-header">
+          <h4>LEADER FLIGHT MISSION</h4>
+          <span class="badge-role">WAYPOINT MODE</span>
+        </div>
+        <div class="mission-btn-group">
+          <button class="mission-btn active" id="btnPatrolCircle" onclick="setLeaderFlightMode('circle')">
+            Autonomous Orbit Patrol
+          </button>
+          <button class="mission-btn" id="btnPatrolFigure8" onclick="setLeaderFlightMode('figure8')">
+            Figure-8 Recon Pattern
+          </button>
+          <button class="mission-btn" id="btnFollowMouse" onclick="setLeaderFlightMode('mouse')">
+            Tactical Cursor Tracking
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL 3: APF Math Coefficients Tuning -->
+      <div class="cockpit-card">
+        <div class="card-header">
+          <h4>APF VECTOR COEFFICIENTS</h4>
+          <span class="badge-role">TUNING</span>
+        </div>
+        <div class="param-slider-group">
+          <div class="param-row">
+            <div class="param-info">
+              <span>Attractive Gain (k_att):</span>
+              <strong id="valKatt">1.4</strong>
+            </div>
+            <input type="range" id="sliderKatt" min="0.5" max="3.0" step="0.1" value="1.4" oninput="updateApfParams()">
+          </div>
+
+          <div class="param-row">
+            <div class="param-info">
+              <span>Repulsive Gain (k_rep):</span>
+              <strong id="valKrep">55.0</strong>
+            </div>
+            <input type="range" id="sliderKrep" min="10" max="120" step="5" value="55" oninput="updateApfParams()">
+          </div>
+
+          <div class="param-row">
+            <div class="param-info">
+              <span>Obstacle Influence (d_0):</span>
+              <strong id="valD0">80 px</strong>
+            </div>
+            <input type="range" id="sliderD0" min="40" max="150" step="5" value="80" oninput="updateApfParams()">
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL 4: Swarm Real-Time Telemetry Stream -->
+      <div class="cockpit-card telemetry-card">
+        <div class="card-header">
+          <h4>REAL-TIME AVIONICS HUD</h4>
+          <span class="badge-sub">PyMAVLink 10Hz</span>
+        </div>
+        <div class="telemetry-table">
+          <div class="telem-row header">
+            <span>UAV ID</span>
+            <span>ROLE</span>
+            <span>SPEED</span>
+            <span>OFFSET ERR</span>
+            <span>STATUS</span>
+          </div>
+
+          <div class="telem-row uav-leader">
+            <span class="uav-badge leader">DRONE 0</span>
+            <span>LEADER</span>
+            <span id="speed0">2.4 m/s</span>
+            <span>-</span>
+            <span class="stat-tag ok">GUIDED</span>
+          </div>
+
+          <div class="telem-row uav-follower">
+            <span class="uav-badge f1">DRONE 1</span>
+            <span>PORT</span>
+            <span id="speed1">2.5 m/s</span>
+            <span id="err1">0.12 m</span>
+            <span class="stat-tag ok" id="statTag1">IN FORM</span>
+          </div>
+
+          <div class="telem-row uav-follower">
+            <span class="uav-badge f2">DRONE 2</span>
+            <span>STARBOARD</span>
+            <span id="speed2">2.4 m/s</span>
+            <span id="err2">0.15 m</span>
+            <span class="stat-tag ok" id="statTag2">IN FORM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL 5: Vector Legend -->
+      <div class="cockpit-card legend-card">
+        <div class="legend-items">
+          <div class="legend-item">
+            <span class="legend-line line-att"></span>
+            <span>F_att (Attractive to Formation Slot)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-line line-rep"></span>
+            <span>F_rep (Repulsive Obstacle Field)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-line line-vel"></span>
+            <span>Resultant Velocity Vector (V_ned)</span>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <script src="js/simulator.js"></script>
+</body>
+</html>

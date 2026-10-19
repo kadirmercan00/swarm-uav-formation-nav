@@ -8,12 +8,26 @@
 [![MAVLink 2.0](https://img.shields.io/badge/Protocol-PyMAVLink_2.0-blue)](https://mavlink.io/)
 [![DroneKit](https://img.shields.io/badge/Avionics-DroneKit_Python-orange)](https://dronekit.netlify.app/)
 [![Computer Vision](https://img.shields.io/badge/Vision-OpenCV_ArUco-5C3EE8?logo=opencv&logoColor=white)](https://opencv.org/)
-[![GUI: PyQt5](https://img.shields.io/badge/GCS-PyQt5_Ground_Control-41CD52?logo=qt&logoColor=white)](gcs/)
+[![Web Simulator](https://img.shields.io/badge/Simulator-60_FPS_Interactive_Web-brightgreen.svg)](simulator/)
+[![Math Formulation](https://img.shields.io/badge/Math-APF_Vector_Field-red.svg)](docs/APF_MATHEMATICS.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[Architecture](#-system-architecture) • [Formation Simulator](sim/swarm_visualizer.py) • [Leader Flight Core](core/leader_fnav.py) • [Follower Core](core/follower1_fnav.py) • [GCS Ground Station](gcs/)
+[Interactive Web Simulator](simulator/) • [Mathematical Formulation](docs/APF_MATHEMATICS.md) • [Architecture](#-system-architecture) • [Leader Flight Core](core/leader_fnav.py) • [Follower Core](core/follower1_fnav.py) • [GCS Ground Station](gcs/)
 
 </div>
+
+---
+
+## 🎮 Interactive Web Swarm Simulator (`simulator/`)
+
+An out-of-the-box, 60 FPS interactive tactical radar simulator located in `simulator/index.html`. It demonstrates the full APF multi-UAV guidance stack directly in any modern browser without needing Python or SITL installations:
+- **Real-Time Force Vector Visualizer:** Renders designated attractive vectors ($\mathbf{F}_{att}$ in green), non-linear obstacle repulsion ($\mathbf{F}_{rep}$ in red), and resultant velocity ($\mathbf{V}_{ned}$ in cyan).
+- **Interactive Obstacle Spawning:** Left-click on the radar screen to drop or remove dynamic radar threats / no-fly zones; observe follower drones fluidly evading obstacles and re-converging to formation slots.
+- **Tactical Geometry Reconfiguration:** Instant in-flight switching between **V-Shape (Wedge)**, **Column (Trail)**, **Echelon (Line)**, and **Diamond Wing** formations.
+- **Flight Mission Modes:** Circle patrol, figure-8 recon, or direct cursor tracking.
+- **Avionics Cockpit HUD:** Real-time speed, slot error ($\Delta x, \Delta y$), and collision avoidance status indicators.
+
+👉 **Launch Simulator:** Open `simulator/index.html` in your web browser.
 
 ---
 
@@ -23,10 +37,10 @@ Autonomous multi-agent UAV operations require high-bandwidth coordination withou
 
 This repository implements a **complete multi-UAV swarm guidance stack**:
 1. **Leader-Follower Formation Kinematics:** Computes dynamic NED (North-East-Down) velocity vectors ($V_x, V_y, V_z$) at $10\,\text{Hz}$ via **PyMAVLink 2.0 / DroneKit** to maintain rigid V-formation and Line-formation patterns.
-2. **Artificial Potential Field (APF) Avoidance:** Real-time vector field math calculating attractive forces toward formation slots and strong non-linear repulsive fields around obstacles.
-3. **Ad-Hoc Inter-UAV Telemetry:** Lightweight binary broadcast via ESP32 **PainlessMesh** allowing resilient inter-drone state sharing without cellular towers.
-4. **GPS-Denied Relative Localization:** Integrated **OpenCV ArUco marker pose estimation** allowing followers to visually lock onto the leader's airframe.
-5. **Live Offline Swarm Simulator (`sim/swarm_visualizer.py`):** Standalone visualizer testing APF vectors, obstacle avoidance, and follower slot retention without physical hardware.
+2. **Artificial Potential Field (APF) Avoidance:** Real-time vector field math calculating attractive forces toward formation slots and strong non-linear repulsive fields around obstacles (see [Mathematical Formulation](docs/APF_MATHEMATICS.md)).
+3. **Interactive 60 FPS Simulator (`simulator/`):** Instant browser-based visualizer for force vectors and dynamic geometries.
+4. **Ad-Hoc Inter-UAV Telemetry:** Lightweight binary broadcast via ESP32 **PainlessMesh** allowing resilient inter-drone state sharing without cellular towers.
+5. **GPS-Denied Relative Localization:** Integrated **OpenCV ArUco marker pose estimation** allowing followers to visually lock onto the leader's airframe.
 
 ---
 
