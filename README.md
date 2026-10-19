@@ -47,27 +47,31 @@ This repository implements a **complete multi-UAV swarm guidance stack**:
 ## 🏛️ System Architecture
 
 ```mermaid
-graph TD
-    subgraph LeaderUAV [Leader UAV (Drone 0)]
-        L_NAV[Waypoint Mission Planner] -->|Global NED Pos| L_MAV[PyMAVLink Flight Core]
-        L_MAV -->|Broadcast Telemetry| MESH[ESP-Mesh Ad-Hoc Radio]
-        ARUCO_TAG[Rear ArUco Marker]
+flowchart TD
+    subgraph LeaderUAV ["Leader UAV (Drone 0)"]
+        L_NAV["Waypoint Mission Planner"] -->|"Global NED Pos"| L_MAV["PyMAVLink Flight Core"]
+        L_MAV -->|"Broadcast Telemetry"| MESH["ESP-Mesh Ad-Hoc Radio"]
+        ARUCO_TAG["Rear ArUco Marker"]
     end
 
-    subgraph Follower1 [Follower UAV 1 (Port Wing)]
-        MESH -->|Leader State Frame| F1_APF[APF Vector Controller]
-        CAM1[Downward/Forward Camera] -->|Marker Pose Estimation| ARUCO_EST1[ArUco Visual Tracker]
-        ARUCO_EST1 & F1_APF --> F1_CORE[PyMAVLink 10Hz NED Velocity Vectors]
+    subgraph Follower1 ["Follower UAV 1 (Port Wing)"]
+        MESH -->|"Leader State Frame"| F1_APF["APF Vector Controller"]
+        CAM1["Camera Feed"] -->|"Marker Pose Estimation"| ARUCO_EST1["ArUco Visual Tracker"]
+        ARUCO_EST1 --> F1_CORE["PyMAVLink 10Hz NED Velocity Vectors"]
+        F1_APF --> F1_CORE
     end
 
-    subgraph Follower2 [Follower UAV 2 (Starboard Wing)]
-        MESH -->|Leader State Frame| F2_APF[APF Vector Controller]
-        CAM2[Downward/Forward Camera] -->|Marker Pose Estimation| ARUCO_EST2[ArUco Visual Tracker]
-        ARUCO_EST2 & F2_APF --> F2_CORE[PyMAVLink 10Hz NED Velocity Vectors]
+    subgraph Follower2 ["Follower UAV 2 (Starboard Wing)"]
+        MESH -->|"Leader State Frame"| F2_APF["APF Vector Controller"]
+        CAM2["Camera Feed"] -->|"Marker Pose Estimation"| ARUCO_EST2["ArUco Visual Tracker"]
+        ARUCO_EST2 --> F2_CORE["PyMAVLink 10Hz NED Velocity Vectors"]
+        F2_APF --> F2_CORE
     end
 
-    subgraph GroundStation [Ground Control Station]
-        GCS[PyQt5 Swarm Cockpit GCS] -.->|Telemetry & Abort| LeaderUAV & Follower1 & Follower2
+    subgraph GroundStation ["Ground Control Station"]
+        GCS["PyQt5 Swarm Cockpit GCS"] -.->|"Telemetry & Abort"| LeaderUAV
+        GCS -.->|"Telemetry & Abort"| Follower1
+        GCS -.->|"Telemetry & Abort"| Follower2
     end
 ```
 
